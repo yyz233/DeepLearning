@@ -6,6 +6,7 @@ import torch.nn as nn
 import time
 from tensorboardX import SummaryWriter
 from sklearn.model_selection import train_test_split
+from torch.optim.lr_scheduler import MultiStepLR
 import cv2
 import os
 
@@ -94,13 +95,21 @@ class Train:
 
     def __init__(self, epoch, batch_size, size=65):
         self.train_loader, self.test_loader, self.validate_loader = data_process(batch_size, size)
-        self.writer = SummaryWriter('./result')
         self.device = self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.batch_size = batch_size
         self.epoch = epoch
         self.model = AlexNet().to(self.device)
         self.criterion = nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        self.sceduler = MultiStepLR(self.optimizer, [30, 50], 0.1)
+
+
+        # input = torch.rand(12, 3, 65, 65).to(self.device)
+        # with SummaryWriter(logdir="./network_visualization") as w:
+        #    w.add_graph(self.model, input)
+        #    w.close()
+        # exit(0)
+        self.writer = SummaryWriter('./result')
 
     def train(self):
         start = time.time()
