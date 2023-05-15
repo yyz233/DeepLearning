@@ -21,7 +21,7 @@ class Train:
         self.batch_size = batch_size
         self.size = size
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = model().to(self.device)
+        self.model = model(12).to(self.device)
         self.criterion = criterion.to(self.device)
         self.optimizer = optimizer(self.model.parameters(), lr=0.001)
         self.scheduler = scheduler(self.optimizer, [30, 50], 0.1)

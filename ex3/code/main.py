@@ -4,9 +4,10 @@ import torch.nn as nn
 import torch
 from torch.optim.lr_scheduler import MultiStepLR
 from torchvision.models import vgg11
+from model.model import VGG
 
 if __name__ == '__main__':
-    epoch = 2
+    epoch = 10
     batch_size = 8
     size = 224
     transform = transforms.Compose(
@@ -23,9 +24,9 @@ if __name__ == '__main__':
         criterion=nn.CrossEntropyLoss(),
         optimizer=torch.optim.Adam,
         scheduler=MultiStepLR,
-        model=vgg11,
+        model=VGG,
         transform=transform
     )
-    # train_adam.train()
+    train_adam.train()
     train_adam.generate_test_csv()
     train_adam.save()
