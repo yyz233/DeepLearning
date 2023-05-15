@@ -1,7 +1,14 @@
-from train_and_test.data_process import test_data_read
-from train_and_test.data_process import train_data_read
+from train_and_test.train_and_test import Train
+import torchvision.transforms as transforms
 
 if __name__ == '__main__':
-    # data_process test
-    train_data_read(224)
-    test_data_read(224)
+    epoch = 90
+    batch_size = 256
+    size = 224
+    transform = transforms.Compose(
+        [transforms.ToPILImage(),
+         transforms.ToTensor(),
+         transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                              std=[0.229, 0.224, 0.225])]
+    )
+    train_adam = Train(epoch, )
