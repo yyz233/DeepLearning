@@ -1,7 +1,6 @@
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
-from sklearn.model_selection import train_test_split
 from collections import defaultdict
 import cv2
 import csv
