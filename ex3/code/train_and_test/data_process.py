@@ -23,7 +23,7 @@ class MyDataset(Dataset):
     def __getitem__(self, item):
         return self.transform(self.data[item][:]), self.label[item]
 
-
+A
 def train_data_read(size):
     """
     :param size: 将图像resize为size*size
@@ -104,3 +104,5 @@ def data_process(batch_size, size):
         num_workers=8,
         shuffle=True
     )
+
+
