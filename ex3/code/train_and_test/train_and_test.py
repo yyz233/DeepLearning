@@ -1,5 +1,5 @@
 import torch
-from data_process import data_process
+from train_and_test.data_process import data_process
 import time
 import pandas as pd
 from tensorboardX import SummaryWriter
@@ -21,12 +21,12 @@ class Train:
         self.batch_size = batch_size
         self.size = size
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.criterion = criterion.to(self.device)
-        self.optimizer = optimizer.to(self.device)
-        self.scheduler = scheduler.to(self.device)
         self.model = model().to(self.device)
+        self.criterion = criterion.to(self.device)
+        self.optimizer = optimizer(self.model.parameters(), lr=0.001)
+        self.scheduler = scheduler(self.optimizer, [30, 50], 0.1)
         self.writer = SummaryWriter('.\\result')
-        self.label2name_dict, self.train_loader, self.test_dataset, self.test_number, self.num2name_dict = \
+        self.label2name_dict, self.train_loader, self.test_loader, self.test_number, self.num2name_dict = \
             data_process(self.batch_size, self.size, transform)
 
     def train(self):
@@ -74,13 +74,17 @@ class Train:
         column = list(['file', 'species'])
 
         with torch.no_grad():
-            for i in range(self.test_number):
-                images = self.test_dataset[i].to(self.device)
+            for images, label in self.test_loader:
+                images = images.to(self.device)
                 outputs = test_model(images)
                 _, predicted = torch.max(outputs.data, 1)
-                predicted = self.label2name_dict[str(predicted[0])]
-                image_name = self.num2name_dict[str(i)]
-                ans.append([str(image_name), str(predicted)])
+                # print(images)
+                # print(label)
+                # print(predicted)
+                for j in range(len(label)):
+                    predict = self.label2name_dict[str(predicted[j])]
+                    image_name = label[j]
+                    ans.append([str(image_name), str(predict)])
         write_ans = pd.DataFrame(columns=column, data=ans)
         write_ans.to_csv('.\\result\\'+str(self.model)+'_ans.csv')
 

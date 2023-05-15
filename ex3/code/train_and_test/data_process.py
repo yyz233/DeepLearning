@@ -76,7 +76,7 @@ def test_data_read(size):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
         data.append(image)
-        labels.append(name2label_map[image_label_map[image_name]])
+        labels.append(image_name)
     return data, labels, test_number
 
 
@@ -99,4 +99,9 @@ def data_process(batch_size, size, transform):
         batch_size=batch_size,
         num_workers=8,
         shuffle=True
-    ), test_dataset, test_number, num2name_map
+    ), torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        num_workers=8,
+        shuffle=True
+    ), test_number, num2name_map
