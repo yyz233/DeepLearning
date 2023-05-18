@@ -3,6 +3,7 @@ from train_and_test.data_process import data_process
 import time
 import pandas as pd
 from tensorboardX import SummaryWriter
+from tqdm import tqdm
 
 
 class Train:
@@ -25,9 +26,12 @@ class Train:
         self.criterion = criterion.to(self.device)
         self.optimizer = optimizer(self.model.parameters(), lr=0.001)
         self.scheduler = scheduler(self.optimizer, [30, 50], 0.1)
-        self.writer = SummaryWriter('.\\result')
-        self.label2name_dict, self.train_loader, self.test_loader, self.test_number, self.num2name_dict = \
+        self.writer = SummaryWriter('./result')
+        self.validAcc = 0
+        print("{}{}{}".format("*"*15,"准备开始读取数据","*"*15))
+        self.label2name_dict, self.train_loader, self.valid_loader, self.test_loader, self.test_number, self.num2name_dict = \
             data_process(self.batch_size, self.size, transform)
+        print("{}{}{}".format("*"*15,"已完成初始化，准备开始训练","*"*15))
 
     def train(self):
         """
@@ -40,7 +44,8 @@ class Train:
             correct = 0
             total = 0
             total_loss = 0
-            for i, (images, labels) in enumerate(self.train_loader):
+            self.model.train()
+            for i, (images, labels) in tqdm(enumerate(self.train_loader)):
                 now_iter += 1
                 images = images.to(self.device)
                 labels = labels.to(self.device)
@@ -56,6 +61,8 @@ class Train:
                 correct += (predicted == labels).sum().item()
                 total += predicted.size(0)
                 total_loss += float(loss.item())
+            if(epoch % 5 == 0):
+                self.valid()
             now = time.time()
             self.writer.add_scalar(str(self.model) + '_loss', total_loss, epoch + 1)
             self.writer.add_scalar(str(self.model) + '_accuracy', correct / total, epoch + 1)
@@ -64,7 +71,26 @@ class Train:
             print('lasts:' + str(now - start) + ' s')
         self.writer.close()
 
-    def generate_test_csv(self):
+    def valid(self):
+        self.model.eval()
+        correct = 0
+        total = 0
+        for images, labels in self.valid_loader:
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+            # 前向传播
+            outputs = self.model(images).to(self.device)
+            # 统计准确率和最新的loss
+            _, predicted = torch.max(outputs, 1)  # max函数返回最大值和索引的元组，我们仅需用到索引值作为标签
+            correct += (predicted == labels).sum().item()
+            total += predicted.size(0)
+        if(correct/total > self.validAcc):
+            self.validAcc = correct/total
+            self.save()
+        print("{}验证集正确率为：{}{}".format("*"*15,correct/total,"*"*15))
+        
+    
+    def generate_test_csv(self, path):
         """
         用当前已经生成好的模型来生成结果csv
         :return:
@@ -72,7 +98,8 @@ class Train:
         test_model = self.model
         ans = list()
         column = list(['file', 'species'])
-
+        self.model.load_state_dict(torch.load(path))
+        self.model.eval()
         with torch.no_grad():
             for images, label in self.test_loader:
                 images = images.to(self.device)
@@ -82,15 +109,15 @@ class Train:
                 # print(label)
                 # print(predicted)
                 for j in range(len(label)):
-                    predict = self.label2name_dict[str(predicted[j])]
+                    predict = self.label2name_dict[str(predicted[j].item())]
                     image_name = label[j]
                     ans.append([str(image_name), str(predict)])
         write_ans = pd.DataFrame(columns=column, data=ans)
-        write_ans.to_csv('.\\result\\'+str(self.model)+'_ans.csv')
+        write_ans.to_csv('./result/'+str(self.model)+'_ans.csv')
 
     def save(self):
         """
         保存当前检查点到save_model目录之下
         :return:
         """
-        torch.save(self.model, './save_model/'+str(self.model)+'.ckpt')
+        torch.save(self.model.state_dict(), './save_model/{}_{:.4f}.ckpt'.format(str(self.model), self.validAcc))
