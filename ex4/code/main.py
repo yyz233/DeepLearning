@@ -1,4 +1,5 @@
 from data_process import data_process_shopping
+from data_process import data_process_climate
 from torch.optim.lr_scheduler import MultiStepLR
 from model import GRU
 from tensorboardX import SummaryWriter
@@ -7,10 +8,12 @@ from model import RNN
 from model import LSTM
 import torch
 from train import train
+from train import train_climate
 from train import test
 
 if __name__ == '__main__':
-    now_task = 'online_shopping_bi_lstm'
+    torch.set_default_tensor_type(torch.FloatTensor)
+    now_task = 'climate_lstm'
     if now_task == 'online_shopping_rnn':
         print(now_task)
         epoch = 50
@@ -70,4 +73,18 @@ if __name__ == '__main__':
         writer = SummaryWriter('./result')
         train(gru, epoch, train_dataloader, criterion, optimizer, writer, 'online_shopping', va_dataloader)
         test(gru, test_dataloader)
+        print('success!')
+    if now_task == 'climate_lstm':
+        print(now_task)
+        epoch = 50
+        batch_size = 8
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        train_dataloader, test_dataloader = data_process_climate(batch_size)
+        lstm = LSTM(6, 288)
+        criterion = nn.MSELoss().to(device)
+        optimizer = torch.optim.Adam(lstm.parameters(), lr=0.0001)
+        scheduler = MultiStepLR(optimizer, [20, 30], 0.1)
+        writer = SummaryWriter('./result')
+        train_climate(lstm, epoch, train_dataloader, criterion, optimizer, writer, test_dataloader)
+        test(lstm, test_dataloader)
         print('success!')

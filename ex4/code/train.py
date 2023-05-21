@@ -1,5 +1,6 @@
 import time
 import torch
+import torch.nn as nn
 
 
 def validate(model, va_loader):
@@ -64,6 +65,43 @@ def train(model, epoch, train_loader, criterion, optimizer, writer, name, va_loa
         if epoch % 9 == 0:
             validate(model, va_loader=va_loader)
             torch.save(model, './save_model/' + name + '_' + str(model) + '.ckpt')
+    writer.close()
+
+
+def train_climate(model, epoch, train_loader, criterion, optimizer, writer, va_loader):
+    """
+    for i, (data, labels) in enumerate(train_loader):
+        print(data)
+        print(data.shape)
+        break
+    return
+    """
+    model.train()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    start = time.time()
+    now_iter = 0
+    for epoch in range(epoch):
+        mse = 0
+        for i, (data, labels) in enumerate(train_loader):
+            now_iter += 1
+            data = data.to(device)
+            labels = labels.to(device)
+            # 前向传播
+            outputs = model(data).to(device)
+            loss = criterion(outputs, labels).to(device)
+            # 反向传播
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            # 统计误差
+            mse = nn.functional.mse_loss(outputs, loss)
+        now = time.time()
+        writer.add_scalar('climate' + '_' + str(model) + '_loss', mse, epoch + 1)
+        print('epoch ' + str(epoch) + ': mse loss '+str(mse))
+        print('lasts:' + str(now - start) + ' s')
+        if epoch % 9 == 0:
+            validate(model, va_loader=va_loader)
+            torch.save(model, './save_model/' + 'climate' + '_' + str(model) + '.ckpt')
     writer.close()
 
 
