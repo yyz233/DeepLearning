@@ -3,7 +3,6 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch
 from torch.optim.lr_scheduler import MultiStepLR
-from torchvision.models import vgg11
 from model.model import VGG
 
 if __name__ == '__main__':
