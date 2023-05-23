@@ -22,7 +22,7 @@ def my_collate(batch):
     labels = [torch.as_tensor(data[1]) for data in batch]
     # 使用 pad_sequence 进行填充
     inputs = pad_sequence(inputs, batch_first=True)
-    labels = torch.as_tensor(labels)
+    labels = torch.tensor([item.cpu().detach().numpy() for item in labels]).cuda()
     return [inputs, labels]
 
 
@@ -33,7 +33,7 @@ class MyDataset(Dataset):
         self.label = label
 
     def __getitem__(self, item):
-        return torch.tensor(np.array(self.data[item])), self.label[item]
+        return torch.tensor(np.array(self.data[item]).astype(float)), torch.tensor(np.array(self.label[item]).astype(float))
 
     def __len__(self):
         return len(self.data)
@@ -45,7 +45,6 @@ def return_climate_dataloader(data, label, batch_size):
         dataset,
         batch_size=batch_size,
         num_workers=0,
-        shuffle=True,
         collate_fn=my_collate
     )
 
@@ -109,22 +108,25 @@ def divide_by_day(group):
     data_list = []
     label_list = []
     for key, value in group:
-        print(key)
         now_iter += 1
         now_list.append(value)
         if now_iter % 7 == 0:
             raw_train_data = now_list[:5]
-            raw_train_data = [data[selected_col] for data in raw_train_data]
             init_df = raw_train_data[0]
             for index in range(1, 5):
                 init_df = pd.concat([init_df, raw_train_data[index]])
             train_data = init_df
-            data_list.append(train_data)
+            small_data = []
+            for index, row in train_data.iterrows():
+                small_data.append(row[selected_col])
+            data_list.append(small_data)
             # 处理标签
             raw_train_label = now_list[5:]
-            raw_train_label = [label['T (degC)'] for label in raw_train_label]
             train_label = pd.concat([raw_train_label[0], raw_train_label[1]])
-            label_list.append(train_label)
+            small_label = []
+            for index, row in train_label.iterrows():
+                small_label.append(row['T (degC)'])
+            label_list.append(small_label)
             now_iter = 0
     return data_list, label_list
 
@@ -134,7 +136,7 @@ def data_process_climate(batch_size):
     df = pd.read_csv(climate_path, parse_dates=['Date Time'], index_col=['Date Time'])
     df['year'] = df.index.year
     df['hour'] = df.index.hour
-    df['year_month_day'] = str(df.index.year) + '_' + str(df.index.month) + '_' + str(df.index.day)
+    df['year_month_day'] = df.index.year.astype(str) + '_' + df.index.month.astype(str) + '_' + df.index.day.astype(str)
     selected_col = ['hour', 'H2OC (mmol/mol)', 'rho (g/m**3)', 'sh (g/kg)', 'Tpot (K)', 'VPmax (mbar)']
     # 进行归一化
     for col in selected_col:

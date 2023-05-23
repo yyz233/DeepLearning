@@ -56,18 +56,19 @@ class LSTM(nn.Module):
             return 'lstm'
 
     def forward(self, x):
+        x = x.to(torch.double)
         batch_size, seq_length, _ = x.size()
         if not self.bidirectional:
             hidden = torch.zeros(batch_size, self.hidden_size).to(self.device)
             ct = torch.zeros(batch_size, self.hidden_size).to(self.device)
             result = torch.zeros(batch_size, self.output_size).to(self.device)
             for i in range(seq_length):
-                token = x[:, i, :].to(self.device)
-                combined = torch.cat((token, hidden), 1)
-                forget = self.sigmoid(self.forget_gate(combined))
-                input_ = self.sigmoid(self.input_gate(combined))
-                c_ = self.tanh(self.c_gate(combined))
-                output = self.sigmoid(self.output_gate(combined))
+                token = x[:, i, :].to(self.device).to(torch.double)
+                combined = torch.cat((token, hidden), 1).to(torch.double)
+                forget = self.sigmoid(self.forget_gate(combined)).to(torch.double)
+                input_ = self.sigmoid(self.input_gate(combined)).to(torch.double)
+                c_ = self.tanh(self.c_gate(combined)).to(torch.double)
+                output = self.sigmoid(self.output_gate(combined)).to(torch.double)
                 ct = ct * forget + input_ * c_
                 hidden = self.tanh(ct) * output
                 result = self.hidden2output(hidden)
