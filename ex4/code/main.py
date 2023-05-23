@@ -1,133 +1,90 @@
-import time
-import torch
+from data_process import data_process_shopping
+from data_process import data_process_climate
+from torch.optim.lr_scheduler import MultiStepLR
+from model import GRU
+from tensorboardX import SummaryWriter
 import torch.nn as nn
+from model import RNN
+from model import LSTM
+import torch
+from train import train
+from train import train_climate
+from train import test
 
-
-def validate(model, va_loader):
-    model.eval()
-    model.zero_grad()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    correct = 0
-    total = 0
-    for i, (data, labels) in enumerate(va_loader):
-        data = data.to(device)
-        labels = labels.to(device)
-        outputs = model(data).to(device)
-        _, predicted = torch.max(outputs, 1)  # max函数返回最大值和索引的元组，我们仅需用到索引值作为标签
-        correct += (predicted == labels).sum().item()
-        total += predicted.size(0)
-    print('Accuracy on va dataset ' + str(correct / total))
-    model.train()
-
-
-def train(model, epoch, train_loader, criterion, optimizer, writer, name, va_loader):
-    """
-    for i, (data, labels) in enumerate(train_loader):
-        print(data)
-        print(data.shape)
-        break
-    return
-    """
-    model.train()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    start = time.time()
-    now_iter = 0
-    for epoch in range(epoch):
-        correct = 0
-        total = 0
-        total_loss = 0
-        for i, (data, labels) in enumerate(train_loader):
-            now_iter += 1
-            data = data.to(device)
-            labels = labels.to(device)
-            # print(data.shape)
-            # data_packed = nn.utils.rnn.pack_padded_sequence(data, lengths=data_lengths, batch_first=True, enforce_sorted=False)
-            # print(data_packed)
-            # break
-            # 前向传播
-            outputs = model(data).to(device)
-            loss = criterion(outputs, labels).to(device)
-            # 反向传播
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            # 统计准确率和最新的loss
-            _, predicted = torch.max(outputs, 1)  # max函数返回最大值和索引的元组，我们仅需用到索引值作为标签
-            correct += (predicted == labels).sum().item()
-            total += predicted.size(0)
-            total_loss += float(loss.item())
-        now = time.time()
-        writer.add_scalar(name + '_' + str(model) + '_loss', total_loss, epoch + 1)
-        writer.add_scalar(name + '_' + str(model) + '_accuracy', correct / total, epoch + 1)
-        print('epoch ' + str(epoch) + ': Accuracy on train dataset '
-              + str(correct / total) + ' total loss: ' + str(total_loss))
-        print('lasts:' + str(now - start) + ' s')
-        if epoch % 9 == 0:
-            validate(model, va_loader=va_loader)
-            torch.save(model, './save_model/' + name + '_' + str(model) + '.ckpt')
-    writer.close()
-
-
-def train_climate(model, epoch, train_loader, criterion, optimizer, writer, va_loader):
-    """
-    for i, (data, labels) in enumerate(train_loader):
-        print(data)
-        print(data.shape)
-        break
-    return
-    """
-    model.train()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    start = time.time()
-    now_iter = 0
-    for epoch in range(epoch):
-        mse = 0
-        for i, (data, labels) in enumerate(train_loader):
-            now_iter += 1
-            data = data.to(device)
-            labels = labels.to(device).to(torch.double)
-            # 前向传播
-            outputs = model(data).to(device).to(torch.double)
-            loss = criterion(outputs, labels).to(device).to(torch.double)
-            loss = loss.to(torch.float32)
-            # 反向传播
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            # 统计误差
-            mse = nn.functional.mse_loss(outputs, loss)
-        now = time.time()
-        torch.save(model, './save_model/' + 'climate' + '_' + str(model) + '.ckpt')
-        writer.add_scalar('climate' + '_' + str(model) + '_loss', mse, epoch + 1)
-        print('epoch ' + str(epoch) + ': mse loss ' + str(mse))
-        print('lasts:' + str(now - start) + ' s')
-    writer.close()
-
-
-def test(model, test_loader):
-    model.eval()
-    model.zero_grad()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    correct = 0
-    total = 0
-    for i, (data, labels) in enumerate(test_loader):
-        data = data.to(device)
-        labels = labels.to(device)
-        outputs = model(data).to(device)
-        _, predicted = torch.max(outputs, 1)  # max函数返回最大值和索引的元组，我们仅需用到索引值作为标签
-        correct += (predicted == labels).sum().item()
-        total += predicted.size(0)
-    print('Accuracy on test dataset ' + str(correct / total))
-
-
-def test_climate(model, test_loader):
-    model.eval()
-    model.zero_grad()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    mse = 0
-    for i, (data, labels) in enumerate(test_loader):
-        data = data.to(device)
-        labels = labels.to(device)
-        outputs = model(data).to(device)
-        mse += float(nn.functional.mse_loss(outputs, loss))
-    print('Accuracy on test dataset ' + str(mse))
+if __name__ == '__main__':
+    torch.set_default_tensor_type(torch.DoubleTensor)
+    now_task = 'climate_lstm'
+    if now_task == 'online_shopping_rnn':
+        print(now_task)
+        epoch = 50
+        batch_size = 1
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        train_dataloader, test_dataloader, va_dataloader, label2name_dict = data_process_shopping(batch_size)
+        a = 0
+        rnn = RNN(128, 10)
+        criterion = nn.CrossEntropyLoss().to(device)
+        optimizer = torch.optim.Adam(rnn.parameters(), lr=0.0001)
+        scheduler = MultiStepLR(optimizer, [20, 30], 0.1)
+        writer = SummaryWriter('./result')
+        train(rnn, epoch, train_dataloader, criterion, optimizer, writer, 'online_shopping', va_dataloader)
+        test(rnn, test_dataloader)
+        print('success!')
+    if now_task == 'online_shopping_lstm':
+        print(now_task)
+        epoch = 50
+        batch_size = 8
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        train_dataloader, test_dataloader, va_dataloader, label2name_dict = data_process_shopping(batch_size)
+        a = 0
+        lstm = LSTM(128, 10, False)
+        criterion = nn.CrossEntropyLoss().to(device)
+        optimizer = torch.optim.Adam(lstm.parameters(), lr=0.0001)
+        scheduler = MultiStepLR(optimizer, [20, 30], 0.1)
+        writer = SummaryWriter('./result')
+        train(lstm, epoch, train_dataloader, criterion, optimizer, writer, 'online_shopping', va_dataloader)
+        test(lstm, test_dataloader)
+        print('success!')
+    if now_task == 'online_shopping_bi_lstm':
+        print(now_task)
+        epoch = 50
+        batch_size = 8
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        train_dataloader, test_dataloader, va_dataloader, label2name_dict = data_process_shopping(batch_size)
+        a = 0
+        bi_lstm = LSTM(128, 10, True)
+        criterion = nn.CrossEntropyLoss().to(device)
+        optimizer = torch.optim.Adam(bi_lstm.parameters(), lr=0.0001)
+        scheduler = MultiStepLR(optimizer, [20, 30], 0.1)
+        writer = SummaryWriter('./result')
+        train(bi_lstm, epoch, train_dataloader, criterion, optimizer, writer, 'online_shopping', va_dataloader)
+        test(bi_lstm, test_dataloader)
+        print('success!')
+    if now_task == 'online_shopping_gru':
+        print(now_task)
+        epoch = 50
+        batch_size = 1
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        train_dataloader, test_dataloader, va_dataloader, label2name_dict = data_process_shopping(batch_size)
+        a = 0
+        gru = GRU(128, 10)
+        criterion = nn.CrossEntropyLoss().to(device)
+        optimizer = torch.optim.Adam(gru.parameters(), lr=0.0001)
+        scheduler = MultiStepLR(optimizer, [20, 30], 0.1)
+        writer = SummaryWriter('./result')
+        train(gru, epoch, train_dataloader, criterion, optimizer, writer, 'online_shopping', va_dataloader)
+        test(gru, test_dataloader)
+        print('success!')
+    if now_task == 'climate_lstm':
+        print(now_task)
+        epoch = 50
+        batch_size = 8
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        train_dataloader, test_dataloader = data_process_climate(batch_size)
+        lstm = LSTM(6, 288)
+        criterion = nn.MSELoss()
+        optimizer = torch.optim.Adam(lstm.parameters(), lr=0.0001)
+        scheduler = MultiStepLR(optimizer, [5, 15], 0.1)
+        writer = SummaryWriter('./result')
+        train_climate(lstm, epoch, train_dataloader, criterion, optimizer, writer, test_dataloader)
+        test_climate(lstm, test_dataloader)
+        print('success!')
